@@ -2,8 +2,6 @@
 
 **Autonomous AI agent swarm that generates, executes, and evolves code strategies in real time.**
 
-*Enjambre de agentes AI autónomos que generan, ejecutan y evolucionan estrategias de código en tiempo real.*
-
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![Three.js](https://img.shields.io/badge/Three.js-R3F-000000?logo=threedotjs)
@@ -16,17 +14,13 @@
 
 ---
 
+---
+
 ## What is this?
 
 Meeseeks Hive spawns autonomous AI agents ("Meeseeks") that receive coding tasks, generate JavaScript solutions, execute them in a sandboxed environment, receive scores, and iteratively improve their code — all without human intervention.
 
 Agents learn from each other across sessions through a shared strategy database, spawn sub-agents when stressed, and compete in head-to-head races. Their lifecycle is visualized in real time via an **isometric 3D office** (Three.js) and a **node graph** (Cytoscape.js).
-
----
-
-Meeseeks Hive crea agentes AI autónomos ("Meeseeks") que reciben tareas de programación, generan soluciones en JavaScript, las ejecutan en un sandbox, reciben puntuación, y mejoran iterativamente su código — todo sin intervención humana.
-
-Los agentes aprenden entre sí a través de una base de datos compartida de estrategias, crean sub-agentes cuando están estresados, y compiten en carreras directas. Su ciclo de vida se visualiza en tiempo real en una **oficina isométrica 3D** (Three.js) y un **grafo de nodos** (Cytoscape.js).
 
 ---
 
