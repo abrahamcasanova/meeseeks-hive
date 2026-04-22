@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+:root {
+  --meeseeks-eager: #22d3ee;
+  --meeseeks-concerned: #facc15;
+  --meeseeks-anxious: #fb923c;
+  --meeseeks-stressed: #ef4444;
+  --meeseeks-panicked: #dc2626;
+  --meeseeks-dead: #6b7280;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+@keyframes pulse-stress {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0.3; }
+}
+
+.animate-pulse-stress {
+  animation: pulse-stress 1s ease-in-out infinite;
+}
+
+.animate-fade-out {
+  animation: fade-out 2s ease-out forwards;
+}
