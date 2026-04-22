@@ -352,6 +352,5 @@ Full documentation available in `docs/` (compatible with Obsidian):
 - [Architecture Overview](docs/Arquitectura%20Overview.md)
 - [Scoring System](docs/Sistema%20de%20Scoring.md)
 - [Performance Dashboard](docs/Performance%20Dashboard.md)
-- [Social Media Strategy](docs/Social-Media-Strategy.md) — how to launch this project publicly
 
 **Questions?** Open an issue or DM [@abrahamcasanova](https://github.com/abrahamcasanova).
