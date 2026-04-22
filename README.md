@@ -16,7 +16,7 @@
 
 ---
 
-## What is this? / ¿Qué es esto?
+## What is this?
 
 Meeseeks Hive spawns autonomous AI agents ("Meeseeks") that receive coding tasks, generate JavaScript solutions, execute them in a sandboxed environment, receive scores, and iteratively improve their code — all without human intervention.
 
@@ -30,7 +30,7 @@ Los agentes aprenden entre sí a través de una base de datos compartida de estr
 
 ---
 
-## Key Features / Características
+## Key Features
 
 | Feature | Description |
 |---------|-------------|
@@ -49,7 +49,7 @@ Los agentes aprenden entre sí a través de una base de datos compartida de estr
 
 ---
 
-## Architecture / Arquitectura
+## Architecture
 
 ```
 ┌──────────────┐     WebSocket      ┌──────────────────┐
@@ -76,7 +76,7 @@ Los agentes aprenden entre sí a través de una base de datos compartida de estr
 
 ## Quick Start
 
-### Prerequisites / Requisitos
+### Prerequisites
 
 - **Docker** and **Docker Compose** (recommended — includes PostgreSQL)
 - **OR**: Node.js ≥ 20, pnpm ≥ 9, PostgreSQL 16 (manual install)
@@ -84,16 +84,16 @@ Los agentes aprenden entre sí a través de una base de datos compartida de estr
 
 ---
 
-### Option A: Docker (Easiest) / Opción A: Docker (más fácil)
+### Option A: Docker (Easiest)
 
-1. **Clone the repo / Clonar el repositorio**
+1. **Clone the repo**
 
 ```bash
 git clone https://github.com/abrahamcasanova/meeseeks-hive.git
 cd meeseeks-hive
 ```
 
-2. **Configure credentials / Configurar credenciales**
+2. **Configure credentials**
 
 ```bash
 cp .env.example .env
@@ -113,7 +113,7 @@ cp .env.example .env
 
 **For AWS Bedrock users:** Your `~/.aws` folder is already mounted in `docker-compose.yaml`. Just ensure your credentials have `bedrock:InvokeModel` permission.
 
-3. **Start everything / Iniciar todo**
+3. **Start everything**
 
 ```bash
 docker compose --profile full up --build
@@ -133,9 +133,9 @@ docker compose --profile full down
 
 ---
 
-### Option B: Local Development / Opción B: Desarrollo Local
+### Option B: Local Development
 
-1. **Clone and install / Clonar e instalar**
+1. **Clone and install**
 
 ```bash
 git clone https://github.com/abrahamcasanova/meeseeks-hive.git
@@ -143,7 +143,7 @@ cd meeseeks-hive
 pnpm install
 ```
 
-2. **Start PostgreSQL / Iniciar PostgreSQL**
+2. **Start PostgreSQL**
 
 ```bash
 docker compose up -d postgres
@@ -151,14 +151,14 @@ docker compose up -d postgres
 
 Or use your own PostgreSQL 16 instance with pgvector extension enabled.
 
-3. **Configure environment / Configurar entorno**
+3. **Configure environment**
 
 ```bash
 cp .env.example .env
 # See "Configure credentials" in Option A above for LLM provider setup
 ```
 
-4. **Run migrations / Ejecutar migraciones**
+4. **Run migrations**
 
 Migrations run automatically on first backend startup. Or manually:
 
@@ -170,7 +170,7 @@ done
 cd ..
 ```
 
-5. **Start development servers / Iniciar servidores de desarrollo**
+5. **Start development servers**
 
 ```bash
 pnpm dev
@@ -183,7 +183,7 @@ Opens:
 
 ---
 
-### Spawn Your First Agent / Crea tu primer agente
+### Spawn Your First Agent
 
 Click **+ Spawn** in the UI, select a harness plugin (e.g., `js-api`), and enter a task. Or via curl:
 
@@ -197,7 +197,7 @@ Watch the agent's lifecycle in the **3D Office** and **Graph** views.
 
 ---
 
-## Harness Plugins / Plugins de Evaluación
+## Harness Plugins
 
 | Plugin | Description | Environments |
 |--------|-------------|-------------|
@@ -208,7 +208,7 @@ Watch the agent's lifecycle in the **3D Office** and **Graph** views.
 
 ---
 
-## Runtime Configuration / Configuración en Tiempo Real
+## Runtime Configuration
 
 Click the ⚙️ button in the UI to adjust parameters without restarting:
 
@@ -236,7 +236,7 @@ Click the ⚙️ button in the UI to adjust parameters without restarting:
 
 ---
 
-## Project Structure / Estructura del Proyecto
+## Project Structure
 
 ```
 meeseeks-hive/
@@ -263,7 +263,7 @@ meeseeks-hive/
 
 ---
 
-## Contributing / Contribuir
+## Contributing
 
 Contributions are welcome! Please:
 1. Fork the repo
@@ -275,7 +275,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines (coming soon).
 
 ---
 
-## License / Licencia
+## License
 
 This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
 
@@ -291,7 +291,7 @@ See [LICENSE](LICENSE) for full terms.
 
 ---
 
-## Roadmap / Hoja de Ruta
+## Roadmap
 
 - [x] Autonomous agent loop with scoring
 - [x] Strategy persistence and semantic search (pgvector)
@@ -306,7 +306,7 @@ See [LICENSE](LICENSE) for full terms.
 
 ---
 
-## Acknowledgments / Agradecimientos
+## Acknowledgments
 
 Inspired by:
 - Rick & Morty's Meeseeks (obviously)
@@ -318,11 +318,11 @@ Built with love and cafecitos ☕ by [Abraham Casanova](https://github.com/abrah
 
 ---
 
-## Support this Project / Apoya este Proyecto
+## Support this Project
 
 If you find Meeseeks Hive useful, consider supporting its development:
 
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/abrahamcasanova)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](buymeacoffee.com/ccasanovaad)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/abrahamcasanova)
 [![GitHub Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/abrahamcasanova)
 
@@ -346,7 +346,7 @@ Your support helps maintain this project and build new features. Thank you! 🙏
 
 ---
 
-## Documentation / Documentación
+## Documentation
 
 Full documentation available in `docs/` (compatible with Obsidian):
 - [Architecture Overview](docs/Arquitectura%20Overview.md)
