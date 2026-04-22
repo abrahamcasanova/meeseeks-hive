@@ -1,0 +1,49 @@
+{
+  "name": "@meeseeks-hive/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "migrate:up": "node-pg-migrate up --migration-file-language sql",
+    "migrate:down": "node-pg-migrate down --migration-file-language sql",
+    "migrate:create": "node-pg-migrate create --migration-file-language sql"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.750.0",
+    "bullmq": "^5.34.0",
+    "compression": "^1.8.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.6.0",
+    "node-pg-migrate": "^7.9.0",
+    "pg": "^8.13.3",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "uuid": "^11.1.0",
+    "ws": "^8.18.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.7.5",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.13.0",
+    "@types/pg": "^8.11.11",
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.5.14",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "node-pg-migrate": {
+    "migrationsDir": "src/db/migrations",
+    "databaseUrl": {
+      "ENV": "DATABASE_URL"
+    }
+  }
+}

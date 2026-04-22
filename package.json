@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "name": "meeseeks-hive",
+  "version": "0.1.0",
+  "description": "Autonomous AI agent swarm that generates, executes, and evolves code strategies in real time",
+  "author": "Abraham Casanova <abrahamcasanovac@outlook.com>",
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abrahamcasanova/meeseeks-hive.git"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint"
+  }
+}
