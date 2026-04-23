@@ -1,4 +1,4 @@
-import { ClaudeAdapter as CoreClaudeAdapter } from '@meeseeks/core';
+import { ClaudeAdapter as CoreClaudeAdapter } from '@meeseeks-sdk/core';
 import { config } from '../config.js';
 
 export class ClaudeAdapter extends CoreClaudeAdapter {

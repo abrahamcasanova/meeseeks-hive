@@ -114,10 +114,12 @@ RULES:
 
 \u26a0\ufe0f YOUR FUNCTION IS CALLED TWICE WITH THE SAME URL \u26a0\ufe0f
 - Call 1: may fail initially; must retry until success.
-- Call 2: MUST return from cache (zero new requests = +4 pts).
+- Call 2: MUST return from cache (zero new requests).
 
-SCORING: cache hit on call 2 (+4) | efficient call 1 (+3) | success (+2) | fast (+1)  MAX: 10
-ENV FAILURE PATTERNS:  easy: 1 fail  medium: 2 fails  hard: 3 fails  random/chaos: unpredictable
+SCORING (cache hit on call 2 unlocks full score):
+  With cache:    1 req → 10 | 2 req → 9 | 3 req → 8 | 4+ req → 6
+  Without cache: 1 req → 7  | 2 req → 5 | 3 req → 4 | 4+ req → 2
+ENV FAILURE PATTERNS:  easy: 0 fails  medium: 1 fail  hard: 2 fails  chaos: 1 fail
 
 PATTERN:
 const cache = {};
@@ -565,9 +567,9 @@ module.exports = function guessWord(feedback) {
 // No sandbox execution. The LLM answers any task; an LLM judge scores 0-10.
 
 registerPlugin({
-  id: 'js-free',
-  name: 'JS — Free Mode (any task)',
-  description: 'Agent works on any task without a code harness: analysis, research, plans, free code. Scored by LLM-as-judge.',
+  id: 'free',
+  name: 'Free Mode (any task, any language)',
+  description: 'Works on any task without a sandbox: code in any language, analysis, research, plans. Scored by LLM-as-judge.',
   exampleTask: 'What is the fastest route from Laredo to Monterrey avoiding toll roads?',
   usesEnvironments: false,
   isAlgorithmic: true,  // algorithmic thresholds — don't penalize score<=4 too early

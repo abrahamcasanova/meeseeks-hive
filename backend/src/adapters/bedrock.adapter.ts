@@ -1,4 +1,4 @@
-import { BedrockAdapter as CoreBedrockAdapter } from '@meeseeks/core';
+import { BedrockAdapter as CoreBedrockAdapter } from '@meeseeks-sdk/core';
 import { config } from '../config.js';
 
 export class BedrockAdapter extends CoreBedrockAdapter {

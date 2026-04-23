@@ -1,6 +1,6 @@
 {
   "name": "@meeseeks-sdk/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "LLM quality gate — executes, scores, and retries AI-generated code until it meets your threshold",
   "license": "MIT",
   "type": "module",
@@ -25,9 +25,11 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-bedrock-runtime": "^3.750.0",
+    "better-sqlite3": "^9.6.0",
     "pino": "^9.6.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^22.13.0",
     "typescript": "^5.7.3"
   },

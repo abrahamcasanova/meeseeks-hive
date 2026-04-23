@@ -4,5 +4,5 @@ export {
   listPlugins,
   buildHarnessWithPlugin,
   HarnessNotFoundError,
-} from '@meeseeks/core';
-export type { HarnessPlugin } from '@meeseeks/core';
+} from '@meeseeks-sdk/core';
+export type { HarnessPlugin } from '@meeseeks-sdk/core';

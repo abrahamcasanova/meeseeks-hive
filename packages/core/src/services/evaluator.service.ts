@@ -133,26 +133,31 @@ export async function evaluateFreeResponse(
   task: string,
   content: string,
   adapter: LLMAdapter,
+  opts?: { projectContext?: string; judgeAdapter?: LLMAdapter },
 ): Promise<Evaluation> {
   try {
     const preview = content.slice(0, 4000);
+    const judgeAdapter = opts?.judgeAdapter ?? adapter;
+    const contextLine = opts?.projectContext
+      ? `\nPROJECT CONTEXT: ${opts.projectContext}\nEvaluate considering this specific stack and conventions.\n`
+      : '';
 
-    const result = await adapter.chat({
+    const result = await judgeAdapter.chat({
       messages: [{
         role: 'user',
-        content: `You are a strict quality judge. Rate the following response to a task.
-
+        content: `You are a strict, independent code reviewer. Be critical. Score 10 ONLY if zero improvements are possible.
+${contextLine}
 TASK: "${task}"
 
 RESPONSE:
 ${preview}
 
-Score quality_score from 0-10. Penalize heavily for responses over 40 lines (verbose, padded, repetitive).
-  10 = concise, complete, correct, actionable, ≤40 lines
-   8 = very good, minor gaps or slightly verbose
-   6 = useful but too long or incomplete
-   4 = partial, superficial, or padded with decoration
-   2 = off-topic, wrong, or empty
+Score quality_score from 0-10:
+  10 = correct, complete, fits project context, actionable — zero improvements possible
+   8 = very good, minor gaps
+   6 = useful but improvable or missing context
+   4 = partial or too vague
+   2 = wrong, off-topic, or empty
 
 Respond ONLY with valid JSON:
 {
@@ -166,7 +171,7 @@ Respond ONLY with valid JSON:
   "reason": "one sentence explaining the score"
 }`,
       }],
-      model: adapter.model,
+      model: judgeAdapter.model,
       maxTokens: 200,
       temperature: 0,
     });

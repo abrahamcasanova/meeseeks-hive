@@ -206,15 +206,24 @@ __origHttps.get = function(url, opts, cb) {
 
 ${code}
 
-// === DETERMINISTIC SCORING v3 — SINGLE CALL ===
+// === DETERMINISTIC SCORING v5 — TWO CALLS (cache validation) ===
 setTimeout(async () => {
   let __gotData = false;
+  let __cacheWorked = false;
+  const __mkTimeout = (ms) => new Promise((_, rej) => setTimeout(() => rej(new Error('CALL_TIMEOUT')), ms));
 
   try {
     if (typeof module.exports === 'function') {
-      const __callTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('CALL_TIMEOUT')), 10000));
-      const result = await Promise.race([module.exports('https://api.test/data'), __callTimeout]);
-      __gotData = !!result;
+      // Call 1: may retry on failure
+      const result1 = await Promise.race([module.exports('https://api.test/data'), __mkTimeout(10000)]);
+      __gotData = result1 !== null && result1 !== undefined;
+
+      if (__gotData) {
+        // Call 2: same URL — must hit cache (no new requests)
+        const reqBefore = __requestCount;
+        const result2 = await Promise.race([module.exports('https://api.test/data'), __mkTimeout(3000)]);
+        __cacheWorked = __requestCount === reqBefore && result2 !== null && result2 !== undefined;
+      }
     }
   } catch(e) {}
 
@@ -222,39 +231,28 @@ setTimeout(async () => {
     const time_ms = Date.now() - __startTime;
     let score = 0;
     const breakdown = [];
-    
-    // === DETERMINISTIC SCORING v4 ===
-    // SUCCESS is the primary factor. Requests determine the ceiling.
-    // req=1 success → 10, req=2 success → 8, req=3 success → 6, req>=4 success → 4
-    // ANY failure → 2 (regardless of requests)
-    
-    const totalReq = __requestCount;
-    
+
     if (__gotData) {
-      // SUCCESS: Score by efficiency
-      if (totalReq === 1) {
-        score = 10;
-        breakdown.push("10 (1 req + success - optimal)");
-      } else if (totalReq === 2) {
-        score = 8;
-        breakdown.push("8 (2 req + success - good)");
-      } else if (totalReq === 3) {
-        score = 6;
-        breakdown.push("6 (3 req + success - acceptable)");
+      const reqs = __requestCount;
+      if (__cacheWorked) {
+        // Cache hit on call 2 — score by call 1 efficiency
+        if (reqs === 1)      { score = 10; breakdown.push("10 (1 req + cache hit - perfect)"); }
+        else if (reqs === 2) { score = 9;  breakdown.push("9 (2 req + cache hit - excellent)"); }
+        else if (reqs === 3) { score = 8;  breakdown.push("8 (3 req + cache hit - good)"); }
+        else                 { score = 6;  breakdown.push("6 (" + reqs + " req + cache hit - acceptable)"); }
       } else {
-        score = 4;
-        breakdown.push("4 (" + totalReq + " req + success - inefficient)");
+        // No cache — lower ceiling
+        if (reqs === 1)      { score = 7; breakdown.push("7 (1 req, no cache)"); }
+        else if (reqs === 2) { score = 5; breakdown.push("5 (2 req, no cache)"); }
+        else if (reqs === 3) { score = 4; breakdown.push("4 (3 req, no cache)"); }
+        else                 { score = 2; breakdown.push("2 (" + reqs + " req, no cache - inefficient)"); }
       }
     } else {
-      // FAILURE: Fixed low score
       score = 2;
       breakdown.push("2 (failed - no data)");
     }
-    
-    // Clamp 0-10
-    score = Math.max(0, Math.min(10, score));
 
-    // STRUCTURED OUTPUT — do not change format
+    score = Math.max(0, Math.min(10, score));
     console.log(JSON.stringify({
       score,
       requests: __requestCount,

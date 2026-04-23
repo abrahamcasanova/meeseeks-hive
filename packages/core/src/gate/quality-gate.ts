@@ -3,6 +3,8 @@ import { executeCode, extractCodeBlocks } from '../services/sandbox.service.js';
 import { buildHarnessWithPlugin, getPlugin } from '../services/plugin-registry.js';
 import { evaluateFreeResponse } from '../services/evaluator.service.js';
 import type { EvaluatorMessage } from '../services/evaluator.service.js';
+import type { StrategyMemoryService } from '../services/strategy-memory.service.js';
+import { buildMemoryPrompt } from '../services/strategy-memory.service.js';
 
 export interface EvalResult {
   score: number;
@@ -26,12 +28,20 @@ export interface QualityGateOptions {
   task: string;
   /** An already-constructed LLMAdapter instance */
   adapter: LLMAdapter;
-  /** Harness plugin id — e.g. 'js-api', 'js-lrucache', 'js-free'. Defaults to 'js-api' */
+  /** Optional separate adapter for judging free-mode responses (avoids judge == generator bias) */
+  judgeAdapter?: LLMAdapter;
+  /** Harness plugin id — e.g. 'js-api', 'js-lrucache', 'free'. Defaults to 'js-api' */
   harness?: string;
   /** Stop when score >= this value. Defaults to 8 */
   minScore?: number;
-  /** Maximum LLM iterations before returning best result. Defaults to 5 */
+  /** Maximum LLM iterations before returning best result. Overrides mode if set explicitly */
   maxRetries?: number;
+  /** Iteration mode: fast=1, balanced=3 (default), quality=5 */
+  mode?: 'fast' | 'balanced' | 'quality';
+  /** Project context injected into the judge prompt for more accurate evaluation */
+  projectContext?: string;
+  /** Optional strategy memory service for knowledge inheritance across sessions */
+  memory?: StrategyMemoryService;
   /** Called after each iteration with progress info */
   onIteration?: (info: IterationInfo) => void;
 }
@@ -41,6 +51,8 @@ export interface QualityGateResult {
   code: string | undefined;
   /** Final score 0-10 */
   score: number;
+  /** Whether score >= minScore was reached */
+  passed: boolean;
   /** Total iterations performed */
   iterations: number;
   /** Full history of every iteration */
@@ -51,22 +63,38 @@ export async function qualityGate(opts: QualityGateOptions): Promise<QualityGate
   const {
     task,
     adapter,
+    judgeAdapter,
     harness = 'js-api',
     minScore = 8,
-    maxRetries = 5,
+    projectContext,
+    memory,
     onIteration,
   } = opts;
+
+  const maxRetries = opts.maxRetries ?? modeToMaxRetries(opts.mode ?? 'balanced');
 
   const plugin = getPlugin(harness);
   const history: IterationInfo[] = [];
   const conversation: EvaluatorMessage[] = [];
   let bestCode: string | undefined;
   let bestScore = 0;
+  let bestStrategyName: string | undefined;
+
+  // Look up proven strategies from memory before starting
+  let memoryPrompt = '';
+  if (memory) {
+    try {
+      const strategies = await memory.search(task);
+      memoryPrompt = buildMemoryPrompt(strategies);
+    } catch {
+      // memory failure is non-fatal
+    }
+  }
 
   conversation.push({ role: 'user', content: `Your task: ${task}\n\nBegin. Show code.` });
 
   for (let iteration = 1; iteration <= maxRetries; iteration++) {
-    const systemPrompt = buildSystemPrompt(task, iteration, maxRetries, plugin);
+    const systemPrompt = buildSystemPrompt(task, iteration, maxRetries, plugin, memoryPrompt);
 
     const chatMessages = conversation.map(m => ({
       role: m.role as 'user' | 'assistant',
@@ -87,7 +115,7 @@ export async function qualityGate(opts: QualityGateOptions): Promise<QualityGate
     let code: string | undefined;
 
     if (plugin?.isFreeMode) {
-      const llmEval = await evaluateFreeResponse(task, content, adapter);
+      const llmEval = await evaluateFreeResponse(task, content, adapter, { projectContext, judgeAdapter });
       evalResult = {
         score: llmEval.quality_score,
         requests: 0,
@@ -105,9 +133,8 @@ export async function qualityGate(opts: QualityGateOptions): Promise<QualityGate
         const testCode = buildHarnessWithPlugin(harness, code, task, iteration);
         const execResult = await executeCode(testCode);
 
-
         try {
-          const jsonLines = execResult.output.split('\n').filter(l => l.startsWith('{'));
+          const jsonLines = execResult.output.split('\n').filter((l: string) => l.startsWith('{'));
           const parsed = jsonLines.length > 0 ? JSON.parse(jsonLines[jsonLines.length - 1]!) : {};
           evalResult = {
             score: parsed.score ?? 0,
@@ -136,6 +163,9 @@ export async function qualityGate(opts: QualityGateOptions): Promise<QualityGate
     if (evalResult.score > bestScore) {
       bestScore = evalResult.score;
       bestCode = code;
+      // Extract strategy name from code comment if present
+      const stratMatch = code?.match(/STRATEGY.*?"name"\s*:\s*"([^"]+)"/);
+      bestStrategyName = stratMatch?.[1];
     }
 
     const info: IterationInfo = { iteration, score: evalResult.score, code, evalResult };
@@ -154,7 +184,32 @@ export async function qualityGate(opts: QualityGateOptions): Promise<QualityGate
     if (evalResult.score >= minScore || evalResult.score === 10) break;
   }
 
-  return { code: bestCode, score: bestScore, iterations: history.length, history };
+  // Save winning strategy to memory
+  if (memory && bestScore >= minScore && bestCode) {
+    const lastEnv = history[history.length - 1]?.evalResult.env;
+    memory.save({
+      task,
+      strategyName: bestStrategyName ?? 'unnamed',
+      code: bestCode,
+      score: bestScore,
+      env: lastEnv,
+      minScore,
+    }).catch(() => {}); // non-blocking, non-fatal
+  }
+
+  return {
+    code: bestCode,
+    score: bestScore,
+    passed: bestScore >= minScore,
+    iterations: history.length,
+    history,
+  };
+}
+
+function modeToMaxRetries(mode: 'fast' | 'balanced' | 'quality'): number {
+  if (mode === 'fast') return 1;
+  if (mode === 'quality') return 5;
+  return 3; // balanced
 }
 
 function buildSystemPrompt(
@@ -162,16 +217,17 @@ function buildSystemPrompt(
   iteration: number,
   maxRetries: number,
   plugin: ReturnType<typeof getPlugin>,
+  memoryPrompt: string,
 ): string {
   const instructions = plugin?.promptInstructions ?? '';
+  const memSection = memoryPrompt ? `\n${memoryPrompt}\n` : '';
 
   if (plugin?.isFreeMode) {
     return `Complete the task or die trying.
-
+${memSection}
 OBJECTIVE: ${task}
 
 ITERATION: ${iteration}/${maxRetries}
-⚠️ MAX 40 LINES. Direct answer. No padding.
 
 TASK INTERFACE:
 ${instructions}`;
@@ -182,7 +238,7 @@ ${instructions}`;
     : `// STRATEGY: {"name":"yourName","params":{"retries":N,"cacheTTL":N,"backoff":"linear|exponential|none"}}`;
 
   return `Complete the task or die trying.
-
+${memSection}
 OBJECTIVE: ${task}
 
 ITERATION: ${iteration}/${maxRetries}

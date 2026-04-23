@@ -1,4 +1,4 @@
-import { OpenAIAdapter as CoreOpenAIAdapter } from '@meeseeks/core';
+import { OpenAIAdapter as CoreOpenAIAdapter } from '@meeseeks-sdk/core';
 import { config } from '../config.js';
 
 export class OpenAIAdapter extends CoreOpenAIAdapter {
