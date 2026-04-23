@@ -1,6 +1,6 @@
 {
   "name": "@meeseeks-sdk/core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "LLM quality gate — executes, scores, and retries AI-generated code until it meets your threshold",
   "license": "MIT",
   "type": "module",
