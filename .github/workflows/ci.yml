@@ -20,6 +20,7 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @meeseeks/core build
       - run: pnpm --filter backend exec tsc --noEmit
       - run: pnpm --filter frontend exec tsc --noEmit
 

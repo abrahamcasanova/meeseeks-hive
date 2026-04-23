@@ -5,7 +5,7 @@ import { costRouter } from './cost.routes.js';
 import { forensicsRouter } from './forensics.routes.js';
 import { configRouter } from './config.routes.js';
 import { SERVER_START_TIME } from '../../config.js';
-import { listPlugins } from '../../services/plugin-registry.js';
+import { listPlugins, type HarnessPlugin } from '../../services/plugin-registry.js';
 
 export const v1Router: RouterType = Router();
 
@@ -14,7 +14,7 @@ v1Router.get('/session', (_req, res) => {
 });
 
 v1Router.get('/plugins', (_req, res) => {
-  res.json(listPlugins().map(p => ({ id: p.id, name: p.name, description: p.description, exampleTask: p.exampleTask })));
+  res.json(listPlugins().map((p: HarnessPlugin) => ({ id: p.id, name: p.name, description: p.description, exampleTask: p.exampleTask })));
 });
 
 v1Router.use('/meeseeks', meeseeksRouter);

@@ -526,7 +526,7 @@ export async function runBaseline(meeseeksId: string, harness: string = 'js-api'
 
     let score = 0;
     try {
-      const jsonLines = result.output.split('\n').filter(l => l.startsWith('{'));
+      const jsonLines = result.output.split('\n').filter((l: string) => l.startsWith('{'));
       if (jsonLines.length > 0) {
         const parsed = JSON.parse(jsonLines[jsonLines.length - 1]!);
         score = parsed.score ?? 0;
