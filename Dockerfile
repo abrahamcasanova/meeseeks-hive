@@ -6,11 +6,13 @@ WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
+COPY packages/core/package.json packages/core/
 RUN pnpm install --frozen-lockfile
 
 # Copy source
 COPY backend/ backend/
 COPY frontend/ frontend/
+COPY packages/core/ packages/core/
 
 # Build
 RUN pnpm -r build
@@ -26,6 +28,9 @@ COPY --from=base /app/backend/dist/ backend/dist/
 COPY --from=base /app/backend/src/db/migrations/ backend/dist/db/migrations/
 COPY --from=base /app/backend/node_modules/ backend/node_modules/
 COPY --from=base /app/frontend/dist/ frontend/dist/
+COPY --from=base /app/packages/core/package.json packages/core/
+COPY --from=base /app/packages/core/dist/ packages/core/dist/
+COPY --from=base /app/packages/core/node_modules/ packages/core/node_modules/
 COPY --from=base /app/node_modules/ node_modules/
 
 ENV NODE_ENV=production

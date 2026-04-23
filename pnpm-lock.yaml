@@ -16,6 +16,9 @@ importers:
       '@aws-sdk/client-bedrock-runtime':
         specifier: ^3.750.0
         version: 3.1032.0
+      '@meeseeks/core':
+        specifier: workspace:*
+        version: link:../packages/core
       bullmq:
         specifier: ^5.34.0
         version: 5.74.1
@@ -162,6 +165,25 @@ importers:
       vitest:
         specifier: ^4.1.5
         version: 4.1.5(@types/node@22.19.17)(jsdom@29.0.2)(vite@6.4.2(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
+
+  packages/core:
+    dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.39.0
+        version: 0.39.0
+      '@aws-sdk/client-bedrock-runtime':
+        specifier: ^3.750.0
+        version: 3.1032.0
+      pino:
+        specifier: ^9.6.0
+        version: 9.14.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.0
+        version: 22.19.17
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
 
 packages:
 

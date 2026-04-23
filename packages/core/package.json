@@ -1,0 +1,49 @@
+{
+  "name": "@meeseeks/core",
+  "version": "0.1.0",
+  "description": "LLM quality gate — executes, scores, and retries AI-generated code until it meets your threshold",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.750.0",
+    "pino": "^9.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "typescript": "^5.7.3"
+  },
+  "keywords": [
+    "llm",
+    "ai",
+    "quality-gate",
+    "code-generation",
+    "sandbox",
+    "scoring",
+    "vibe-coding"
+  ],
+  "author": "Abraham Casanova <abrahamcasanovac@outlook.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abrahamcasanova/meeseeks-hive.git",
+    "directory": "packages/core"
+  }
+}

@@ -2,6 +2,7 @@
   "name": "@meeseeks-hive/backend",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -12,6 +13,7 @@
     "migrate:create": "node-pg-migrate create --migration-file-language sql"
   },
   "dependencies": {
+    "@meeseeks/core": "workspace:*",
     "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-bedrock-runtime": "^3.750.0",
     "bullmq": "^5.34.0",
