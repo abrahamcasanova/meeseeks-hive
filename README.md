@@ -7,8 +7,10 @@
 ![Three.js](https://img.shields.io/badge/Three.js-R3F-000000?logo=threedotjs)
 ![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
-![License](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
+[![npm core](https://img.shields.io/npm/v/@meeseeks-sdk/core?label=%40meeseeks-sdk%2Fcore)](https://www.npmjs.com/package/@meeseeks-sdk/core)
+[![npm mcp](https://img.shields.io/npm/v/@meeseeks-sdk/mcp?label=%40meeseeks-sdk%2Fmcp)](https://www.npmjs.com/package/@meeseeks-sdk/mcp)
 
 ![Demo](docs/assets/demo.gif)
 
@@ -21,6 +23,53 @@
 Meeseeks Hive spawns autonomous AI agents ("Meeseeks") that receive coding tasks, generate JavaScript solutions, execute them in a sandboxed environment, receive scores, and iteratively improve their code — all without human intervention.
 
 Agents learn from each other across sessions through a shared strategy database, spawn sub-agents when stressed, and compete in head-to-head races. Their lifecycle is visualized in real time via an **isometric 3D office** (Three.js) and a **node graph** (Cytoscape.js).
+
+---
+
+## Use the engine in your own project
+
+The quality gate that powers Meeseeks Hive is available as a standalone npm package:
+
+```bash
+npm install @meeseeks-sdk/core
+```
+
+```typescript
+import { MeeseeksSDK, BedrockAdapter } from '@meeseeks-sdk/core';
+
+const sdk = new MeeseeksSDK({
+  adapter: new BedrockAdapter({ region: 'us-east-1' }),
+  storage: '.meeseeks/memory.db',  // learns over time
+});
+
+const result = await sdk.run({
+  task: 'Write fetchWithRetry(url) with exponential backoff and cache.',
+  mode: 'balanced',
+});
+
+console.log(result.code);   // verified code that scored ≥ 8/10
+console.log(result.score);  // objective score 0-10
+console.log(result.passed); // true
+```
+
+### MCP server for Claude Code
+
+Makes Claude Code verify its own code automatically before writing it to your project:
+
+```bash
+claude mcp add meeseeks --scope user -- npx -y -p @meeseeks-sdk/mcp meeseeks-mcp
+```
+
+Add to your `CLAUDE.md`:
+
+```markdown
+When writing isolated utility functions or algorithms, use the meeseeks__quality_gate tool.
+```
+
+That's it — Claude detects pure functions, runs the quality gate, and only adds verified code to your files.
+
+→ **[@meeseeks-sdk/core on npm](https://www.npmjs.com/package/@meeseeks-sdk/core)** — MIT, works with Claude, GPT-4, Bedrock, Ollama  
+→ **[@meeseeks-sdk/mcp on npm](https://www.npmjs.com/package/@meeseeks-sdk/mcp)** — MCP server for Claude Code
 
 ---
 
@@ -195,10 +244,16 @@ Watch the agent's lifecycle in the **3D Office** and **Graph** views.
 
 | Plugin | Description | Environments |
 |--------|-------------|-------------|
-| `js-api` | HTTP fetch with retry/backoff patterns | easy, medium, hard, chaos |
+| `js-api` | HTTP fetch with retry/backoff + cache | easy, medium, hard, chaos |
 | `js-ratelimiter` | Token bucket rate limiter | No |
-| `js-lrucache` | LRU cache with TTL | No |
+| `js-lrucache` | LRU cache with eviction | No |
+| `js-circuitbreaker` | Circuit breaker (closed/open/half-open) | No |
 | `js-promisepool` | Concurrent task execution with limit | easy, medium, hard, chaos |
+| `js-tictactoe` | Minimax algorithm | No |
+| `js-maze` | BFS pathfinding | No |
+| `js-sudoku` | Constraint propagation + backtracking | No |
+| `js-wordle` | Information theory solver | No |
+| `free` | Any task, any language — scored by LLM judge | No |
 
 ---
 
@@ -234,10 +289,17 @@ Click the ⚙️ button in the UI to adjust parameters without restarting:
 
 ```
 meeseeks-hive/
+├── packages/
+│   ├── core/              # @meeseeks-sdk/core — standalone npm package
+│   │   └── src/
+│   │       ├── gate/      # qualityGate() + MeeseeksSDK class
+│   │       ├── services/  # sandbox, scoring, memory, embeddings
+│   │       └── adapters/  # LLM + embedding adapters
+│   └── mcp-server/        # (in separate repo: meeseeks-mcp)
 ├── backend/src/
 │   ├── managers/          # Autonomous loop, lifecycle, spawning, competition
-│   ├── services/          # Stress, strategy memory, sandbox, learned strategies
-│   ├── adapters/          # LLM adapters (Claude, Bedrock, Ollama)
+│   ├── services/          # Stress, strategy memory, learned strategies
+│   ├── adapters/          # Thin wrappers over @meeseeks-sdk/core
 │   ├── routes/v1/         # REST API endpoints
 │   ├── db/migrations/     # PostgreSQL schema
 │   └── websocket/         # Real-time event broadcasting
@@ -247,12 +309,9 @@ meeseeks-hive/
 │   │   ├── hive/          # Graph view, controls, settings
 │   │   ├── meeseeks/      # Agent panel, chat, stress bar
 │   │   ├── performance/   # Metrics dashboard
-│   │   ├── forensics/     # Post-mortem analysis
-│   │   └── cost/          # Cost tracking badge
-│   ├── hooks/             # WebSocket, Cytoscape, animations, layout
-│   ├── stores/            # Zustand stores (hive, cost)
-│   └── services/          # API clients
-└── docker-compose.yaml    # PostgreSQL
+│   │   └── forensics/     # Post-mortem analysis
+│   └── stores/            # Zustand stores
+└── docker-compose.yaml
 ```
 
 ---
@@ -271,17 +330,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines (coming soon).
 
 ## License
 
-This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
-
-**What this means:**
-- ✅ You can use, modify, and distribute this software freely
-- ✅ You can run it as a service (e.g., hosted Meeseeks Hive instance)
-- ⚠️ **If you modify the code and run it as a network service, you MUST release your modified source code under AGPL-3.0**
-- 💼 For commercial/proprietary use without source code disclosure, contact the author for a dual license
-
-See [LICENSE](LICENSE) for full terms.
-
-**Why AGPL?** To prevent cloud providers from running proprietary forks without contributing back to the community.
+MIT — free to use in commercial and open source projects. See [LICENSE](LICENSE).
 
 ---
 
