@@ -2,16 +2,23 @@ import type { LLMAdapter } from './adapters/llm.types.js';
 import type { EmbeddingAdapter } from './adapters/embedding.types.js';
 import { StorageService } from './services/storage.service.js';
 import { StrategyMemoryService } from './services/strategy-memory.service.js';
+import type { StorageBackend } from './services/storage.backend.js';
 import { qualityGate } from './gate/quality-gate.js';
 import type { QualityGateResult, IterationInfo } from './gate/quality-gate.js';
+
+export type { StorageBackend } from './services/storage.backend.js';
 
 export interface MeeseeksSDKConfig {
   /** LLM adapter used to generate code/responses */
   adapter: LLMAdapter;
   /** Optional separate adapter for judging — avoids judge == generator bias in free mode */
   judgeAdapter?: LLMAdapter;
-  /** Path to SQLite database file. Default: '.meeseeks/memory.db' */
-  storage?: string;
+  /**
+   * Storage for strategy memory.
+   * - string: path to SQLite file (default: '.meeseeks/memory.db')
+   * - StorageBackend: custom backend (e.g. PostgreSQL)
+   */
+  storage?: string | StorageBackend;
   /** Optional embedding adapter — enables semantic search for knowledge inheritance */
   embeddingAdapter?: EmbeddingAdapter;
   /** Project context injected into the judge prompt (e.g. 'TypeScript + Express + PostgreSQL') */
@@ -33,22 +40,38 @@ export interface RunOptions {
   projectContext?: string;
   /** Called after each iteration with progress info */
   onIteration?: (info: IterationInfo) => void;
+  /** Optional params passed to the harness plugin (e.g. test cases for js-unit-test) */
+  harnessParams?: Record<string, unknown>;
+  /** LLM temperature (0.0-1.0). Higher = more creative/risky, lower = more deterministic */
+  temperature?: number;
 }
 
 export class MeeseeksSDK {
   private memory: StrategyMemoryService;
-  private storage: StorageService;
+  private storage: StorageService | StorageBackend;
   private config: MeeseeksSDKConfig;
 
   constructor(config: MeeseeksSDKConfig) {
-    const dbPath = config.storage ?? '.meeseeks/memory.db';
-    this.storage = new StorageService(dbPath);
+    if (config.storage && typeof config.storage !== 'string') {
+      // Custom backend (e.g. PgStorageService)
+      this.storage = config.storage;
+    } else {
+      const dbPath = (config.storage as string | undefined) ?? '.meeseeks/memory.db';
+      this.storage = new StorageService(dbPath);
+    }
     this.memory = new StrategyMemoryService(this.storage, config.embeddingAdapter);
     this.config = config;
   }
 
   static async create(config: MeeseeksSDKConfig): Promise<MeeseeksSDK> {
-    const dbPath = config.storage ?? '.meeseeks/memory.db';
+    if (config.storage && typeof config.storage !== 'string') {
+      const sdk = Object.create(MeeseeksSDK.prototype) as MeeseeksSDK;
+      sdk.storage = config.storage;
+      sdk.memory = new StrategyMemoryService(config.storage, config.embeddingAdapter);
+      sdk.config = config;
+      return sdk;
+    }
+    const dbPath = (config.storage as string | undefined) ?? '.meeseeks/memory.db';
     const storage = await StorageService.create(dbPath);
     const sdk = Object.create(MeeseeksSDK.prototype) as MeeseeksSDK;
     sdk.storage = storage;
@@ -68,11 +91,13 @@ export class MeeseeksSDK {
       memory: this.memory,
       mode: opts.mode ?? 'balanced',
       onIteration: opts.onIteration,
+      harnessParams: opts.harnessParams,
+      temperature: opts.temperature,
     });
   }
 
   close(): void {
-    this.storage.close();
+    void Promise.resolve(this.storage.close());
   }
 
   private detectHarness(task: string): string {

@@ -213,15 +213,33 @@ setTimeout(async () => {
   const __mkTimeout = (ms) => new Promise((_, rej) => setTimeout(() => rej(new Error('CALL_TIMEOUT')), ms));
 
   try {
+    // Resolve exported function — handles both module.exports = fn and module.exports = { fn }
+    let __fn = null;
     if (typeof module.exports === 'function') {
+      __fn = module.exports;
+    } else if (module.exports && typeof module.exports === 'object') {
+      // Try common names: fetchWithRetry, fetch, get, request, run, default
+      const __names = ['fetchWithRetry', 'fetch', 'get', 'request', 'run', 'default'];
+      for (const __n of __names) {
+        if (typeof module.exports[__n] === 'function') { __fn = module.exports[__n]; break; }
+      }
+      // Last resort: first function value in the object
+      if (!__fn) {
+        for (const __v of Object.values(module.exports)) {
+          if (typeof __v === 'function') { __fn = __v; break; }
+        }
+      }
+    }
+
+    if (__fn) {
       // Call 1: may retry on failure
-      const result1 = await Promise.race([module.exports('https://api.test/data'), __mkTimeout(10000)]);
+      const result1 = await Promise.race([__fn('https://api.test/data'), __mkTimeout(10000)]);
       __gotData = result1 !== null && result1 !== undefined;
 
       if (__gotData) {
         // Call 2: same URL — must hit cache (no new requests)
         const reqBefore = __requestCount;
-        const result2 = await Promise.race([module.exports('https://api.test/data'), __mkTimeout(3000)]);
+        const result2 = await Promise.race([__fn('https://api.test/data'), __mkTimeout(3000)]);
         __cacheWorked = __requestCount === reqBefore && result2 !== null && result2 !== undefined;
       }
     }
@@ -1005,3 +1023,100 @@ setTimeout(() => {
 `;
 }
 
+export function buildUnitTestHarness(code: string, params: Record<string, unknown>): string {
+  const testCasesJson = JSON.stringify(params['testCases'] ?? []);
+  const functionName  = JSON.stringify(params['functionName'] ?? '');
+  const allowPartial  = params['allowPartialCredit'] !== false;
+
+  return `
+const __startTime = Date.now();
+const __testCases = ${testCasesJson};
+const __functionName = ${functionName};
+const __allowPartialCredit = ${allowPartial};
+
+${code}
+
+function __resolveExport() {
+  const ex = module.exports;
+  // Direct export: module.exports = function name() {}
+  if (typeof ex === 'function') return ex;
+  // Named export: module.exports = { functionName: fn }
+  if (ex && typeof ex[__functionName] === 'function') return ex[__functionName];
+  // Not found — do NOT fall back to first function, that would accept wrong exports
+  return null;
+}
+
+function __deepEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+setTimeout(async () => {
+  const fn = __resolveExport();
+  const breakdown = [];
+  let earnedPoints = 0;
+  let totalPoints = 0;
+
+  if (!fn) {
+    const time_ms = Date.now() - __startTime;
+    console.log(JSON.stringify({
+      score: 0, requests: __testCases.length, retries: 0, time_ms,
+      success: false, env: 'unit-test',
+      breakdown: ['function "' + __functionName + '" not found in exports'],
+    }));
+    process.exit(0);
+  }
+
+  for (let i = 0; i < __testCases.length; i++) {
+    const tc = __testCases[i];
+    const pts = tc.points ?? 1;
+    const timeoutMs = tc.timeoutMs ?? 100;
+    totalPoints += pts;
+
+    const tcStart = Date.now();
+    let passed = false;
+    let errMsg = null;
+    let actual;
+
+    try {
+      const timeoutPromise = new Promise((_, rej) =>
+        setTimeout(() => rej(new Error('TEST_TIMEOUT')), timeoutMs)
+      );
+      actual = await Promise.race([
+        Promise.resolve(fn(...(tc.input ?? []))),
+        timeoutPromise,
+      ]);
+      passed = __deepEqual(actual, tc.expected);
+    } catch (e) {
+      errMsg = e.message;
+    }
+
+    const tcMs = Date.now() - tcStart;
+    const label = tc.description || ('test ' + (i + 1));
+
+    if (passed) {
+      earnedPoints += pts;
+      breakdown.push('+' + pts + ' ' + label + ' (' + tcMs + 'ms)');
+    } else if (__allowPartialCredit) {
+      breakdown.push('+0 ' + label + (errMsg ? ' [' + errMsg + ']' : ' [expected ' + JSON.stringify(tc.expected) + ' got ' + JSON.stringify(actual) + ']'));
+    } else {
+      breakdown.push('FAILED ' + label + (errMsg ? ' [' + errMsg + ']' : ''));
+      break;
+    }
+  }
+
+  const rawScore = totalPoints > 0 ? (earnedPoints / totalPoints) * 10 : 0;
+  const score = Math.min(10, Math.round(rawScore * 10) / 10);
+  const time_ms = Date.now() - __startTime;
+  console.log(JSON.stringify({
+    score,
+    requests: __testCases.length,
+    retries: 0,
+    time_ms,
+    success: score >= 6,
+    env: 'unit-test',
+    breakdown,
+  }));
+  process.exit(0);
+}, 30);
+`;
+}

@@ -136,28 +136,36 @@ export async function evaluateFreeResponse(
   opts?: { projectContext?: string; judgeAdapter?: LLMAdapter },
 ): Promise<Evaluation> {
   try {
-    const preview = content.slice(0, 4000);
+    const preview = content.slice(0, 8000);
     const judgeAdapter = opts?.judgeAdapter ?? adapter;
     const contextLine = opts?.projectContext
       ? `\nPROJECT CONTEXT: ${opts.projectContext}\nEvaluate considering this specific stack and conventions.\n`
       : '';
 
+    const taskSummary = task.length > 300 ? task.slice(0, 300) + '...[truncated]' : task;
+
     const result = await judgeAdapter.chat({
       messages: [{
         role: 'user',
-        content: `You are a strict, independent code reviewer. Be critical. Score 10 ONLY if zero improvements are possible.
+        content: `You are a strict code reviewer. Score 10 ONLY if zero improvements are possible.
 ${contextLine}
-TASK: "${task}"
+TASK (summary): "${taskSummary}"
 
 RESPONSE:
 ${preview}
 
-Score quality_score from 0-10:
-  10 = correct, complete, fits project context, actionable — zero improvements possible
+Score quality_score 0-10:
+  10 = correct, complete, fits context — zero improvements possible
    8 = very good, minor gaps
-   6 = useful but improvable or missing context
+   6 = useful but improvable
    4 = partial or too vague
    2 = wrong, off-topic, or empty
+
+reason field: MAX 20 words. Be specific: name the exact flaw or strength.
+Examples of good reasons:
+  "Missing null check on url parameter causes TypeError"
+  "Cache eviction logic incorrect — evicts newest not oldest"
+  "Complete and correct implementation with proper error handling"
 
 Respond ONLY with valid JSON:
 {
@@ -168,11 +176,11 @@ Respond ONLY with valid JSON:
   "cost_efficiency_score": 7,
   "should_continue": boolean,
   "should_try_new_strategy": boolean,
-  "reason": "one sentence explaining the score"
+  "reason": "max 20 words, specific flaw or strength"
 }`,
       }],
       model: judgeAdapter.model,
-      maxTokens: 200,
+      maxTokens: 300,
       temperature: 0,
     });
 

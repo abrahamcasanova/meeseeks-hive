@@ -31,6 +31,7 @@ export type { ExecutionResult } from './services/sandbox.service.js';
 // Storage & memory (advanced usage)
 export { StorageService } from './services/storage.service.js';
 export type { StrategyRecord } from './services/storage.service.js';
+export type { StorageBackend } from './services/storage.backend.js';
 export { StrategyMemoryService, extractTaskPattern } from './services/strategy-memory.service.js';
 
 // Evaluator types

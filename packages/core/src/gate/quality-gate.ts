@@ -14,6 +14,7 @@ export interface EvalResult {
   success: boolean;
   env: string;
   reason?: string;
+  breakdown?: string[];
 }
 
 export interface IterationInfo {
@@ -38,12 +39,18 @@ export interface QualityGateOptions {
   maxRetries?: number;
   /** Iteration mode: fast=1, balanced=3 (default), quality=5 */
   mode?: 'fast' | 'balanced' | 'quality';
+  /** Global timeout in ms across all iterations. Returns best result so far if exceeded. */
+  totalTimeoutMs?: number;
   /** Project context injected into the judge prompt for more accurate evaluation */
   projectContext?: string;
   /** Optional strategy memory service for knowledge inheritance across sessions */
   memory?: StrategyMemoryService;
   /** Called after each iteration with progress info */
   onIteration?: (info: IterationInfo) => void;
+  /** Optional params passed to the harness plugin (e.g. test cases for js-unit-test) */
+  harnessParams?: Record<string, unknown>;
+  /** LLM temperature (0.0-1.0). Higher = more creative/risky, lower = more deterministic */
+  temperature?: number;
 }
 
 export interface QualityGateResult {
@@ -69,9 +76,13 @@ export async function qualityGate(opts: QualityGateOptions): Promise<QualityGate
     projectContext,
     memory,
     onIteration,
+    harnessParams,
+    temperature,
   } = opts;
 
   const maxRetries = opts.maxRetries ?? modeToMaxRetries(opts.mode ?? 'balanced');
+  const totalTimeoutMs = opts.totalTimeoutMs;
+  const startTime = Date.now();
 
   const plugin = getPlugin(harness);
   const history: IterationInfo[] = [];
@@ -106,6 +117,7 @@ export async function qualityGate(opts: QualityGateOptions): Promise<QualityGate
       model: adapter.model,
       systemPrompt,
       maxTokens: 2048,
+      temperature,
     });
 
     const content = response.content;
@@ -115,6 +127,7 @@ export async function qualityGate(opts: QualityGateOptions): Promise<QualityGate
     let code: string | undefined;
 
     if (plugin?.isFreeMode) {
+      code = content; // free mode: the full LLM response is the "code"
       const llmEval = await evaluateFreeResponse(task, content, adapter, { projectContext, judgeAdapter });
       evalResult = {
         score: llmEval.quality_score,
@@ -130,7 +143,7 @@ export async function qualityGate(opts: QualityGateOptions): Promise<QualityGate
       code = codeBlocks[0];
 
       if (code) {
-        const testCode = buildHarnessWithPlugin(harness, code, task, iteration);
+        const testCode = buildHarnessWithPlugin(harness, code, task, iteration, harnessParams);
         const execResult = await executeCode(testCode);
 
         try {
@@ -144,6 +157,7 @@ export async function qualityGate(opts: QualityGateOptions): Promise<QualityGate
             success: parsed.success ?? false,
             env: parsed.env ?? 'unknown',
             reason: parsed.reason,
+            breakdown: Array.isArray(parsed.breakdown) ? parsed.breakdown : undefined,
           };
         } catch {
           evalResult = {
@@ -163,9 +177,9 @@ export async function qualityGate(opts: QualityGateOptions): Promise<QualityGate
     if (evalResult.score > bestScore) {
       bestScore = evalResult.score;
       bestCode = code;
-      // Extract strategy name from code comment if present
+      // Extract strategy name from STRATEGY comment, fallback to task prefix
       const stratMatch = code?.match(/STRATEGY.*?"name"\s*:\s*"([^"]+)"/);
-      bestStrategyName = stratMatch?.[1];
+      bestStrategyName = stratMatch?.[1] ?? task.slice(0, 40).replace(/\s+/g, '_').toLowerCase();
     }
 
     const info: IterationInfo = { iteration, score: evalResult.score, code, evalResult };
@@ -182,19 +196,22 @@ export async function qualityGate(opts: QualityGateOptions): Promise<QualityGate
     conversation.push({ role: 'user', content: feedback });
 
     if (evalResult.score >= minScore || evalResult.score === 10) break;
+
+    // Global timeout — return best so far instead of hanging
+    if (totalTimeoutMs && (Date.now() - startTime) >= totalTimeoutMs) break;
   }
 
-  // Save winning strategy to memory
+  // Await save so it completes before caller exits (e.g. CLI scripts)
   if (memory && bestScore >= minScore && bestCode) {
     const lastEnv = history[history.length - 1]?.evalResult.env;
-    memory.save({
+    await memory.save({
       task,
-      strategyName: bestStrategyName ?? 'unnamed',
+      strategyName: bestStrategyName!,
       code: bestCode,
       score: bestScore,
       env: lastEnv,
       minScore,
-    }).catch(() => {}); // non-blocking, non-fatal
+    }).catch(() => {});
   }
 
   return {

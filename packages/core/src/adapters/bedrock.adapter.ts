@@ -21,48 +21,72 @@ export class BedrockAdapter implements LLMAdapter {
 
   async chat(params: ChatParams): Promise<ChatResponse> {
     const { messages, system } = this.buildMessages(params);
+    const MAX_RETRIES = 3;
 
-    const command = new ConverseCommand({
-      modelId: this.model,
-      messages,
-      system,
-      inferenceConfig: {
-        maxTokens: params.maxTokens ?? 1024,
-        temperature: params.temperature ?? 0.7,
-      },
-    });
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const command = new ConverseCommand({
+          modelId: this.model,
+          messages,
+          system,
+          inferenceConfig: {
+            maxTokens: params.maxTokens ?? 1024,
+            temperature: params.temperature ?? 0.7,
+          },
+        });
 
-    const response = await this.client.send(command);
+        const response = await this.client.send(command);
 
-    const textBlock = response.output?.message?.content?.find(
-      (b): b is ContentBlock.TextMember => 'text' in b,
-    );
+        const textBlock = response.output?.message?.content?.find(
+          (b): b is ContentBlock.TextMember => 'text' in b,
+        );
 
-    return {
-      content: textBlock?.text ?? '',
-      inputTokens: response.usage?.inputTokens ?? 0,
-      outputTokens: response.usage?.outputTokens ?? 0,
-      model: this.model,
-      stopReason: response.stopReason ?? 'unknown',
-    };
+        return {
+          content: textBlock?.text ?? '',
+          inputTokens: response.usage?.inputTokens ?? 0,
+          outputTokens: response.usage?.outputTokens ?? 0,
+          model: this.model,
+          stopReason: response.stopReason ?? 'unknown',
+        };
+      } catch (err) {
+        const isThrottle = (err as { name?: string }).name === 'ThrottlingException'
+          || (err as { message?: string }).message?.includes('Too many requests');
+        if (!isThrottle || attempt === MAX_RETRIES) throw err;
+        const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+    throw new Error('Bedrock: max retries exceeded');
   }
 
   async *stream(params: ChatParams): AsyncIterable<StreamChunk> {
     const { messages, system } = this.buildMessages(params);
+    const MAX_RETRIES = 3;
 
-    const command = new ConverseStreamCommand({
-      modelId: this.model,
-      messages,
-      system,
-      inferenceConfig: {
-        maxTokens: params.maxTokens ?? 1024,
-        temperature: params.temperature ?? 0.7,
-      },
-    });
+    let response;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const command = new ConverseStreamCommand({
+          modelId: this.model,
+          messages,
+          system,
+          inferenceConfig: {
+            maxTokens: params.maxTokens ?? 1024,
+            temperature: params.temperature ?? 0.7,
+          },
+        });
+        response = await this.client.send(command);
+        break;
+      } catch (err) {
+        const isThrottle = (err as { name?: string }).name === 'ThrottlingException'
+          || (err as { message?: string }).message?.includes('Too many requests');
+        if (!isThrottle || attempt === MAX_RETRIES) throw err;
+        const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
 
-    const response = await this.client.send(command);
-
-    if (!response.stream) {
+    if (!response?.stream) {
       yield { type: 'error', error: 'No stream in Bedrock response' };
       return;
     }
@@ -70,7 +94,7 @@ export class BedrockAdapter implements LLMAdapter {
     let inputTokens = 0;
     let outputTokens = 0;
 
-    for await (const event of response.stream) {
+    for await (const event of response!.stream!) {
       if (event.contentBlockDelta?.delta && 'text' in event.contentBlockDelta.delta) {
         yield { type: 'text', text: event.contentBlockDelta.delta.text };
       }

@@ -8,6 +8,7 @@ import {
   buildMazeSolverHarness,
   buildSudokuHarness,
   buildWordleHarness,
+  buildUnitTestHarness,
 } from './sandbox.service.js';
 
 // ─── Interface ───────────────────────────────────────────────────────────────
@@ -42,7 +43,7 @@ export interface HarnessPlugin {
    * a structured JSON result. The result must include:
    *   { score, requests, retries, time_ms, success, env, breakdown? }
    */
-  buildHarness(code: string, task: string, iteration: number): string;
+  buildHarness(code: string, task: string, iteration: number, params?: Record<string, unknown>): string;
 }
 
 export class HarnessNotFoundError extends Error {
@@ -77,10 +78,11 @@ export function buildHarnessWithPlugin(
   code: string,
   task: string,
   iteration: number,
+  params?: Record<string, unknown>,
 ): string {
   const plugin = registry.get(pluginId);
   if (!plugin) throw new HarnessNotFoundError(pluginId);
-  return plugin.buildHarness(code, task, iteration);
+  return plugin.buildHarness(code, task, iteration, params);
 }
 
 // ─── Built-in plugins ────────────────────────────────────────────────────────
@@ -129,7 +131,7 @@ module.exports = async function(url) {
   cache[url] = result;
   return result;
 };`,
-  buildHarness: (code, _task, iteration) => buildApiTestHarness(code, iteration),
+  buildHarness: (code, _task, iteration, _params?) => buildApiTestHarness(code, iteration),
 });
 
 registerPlugin({
@@ -166,7 +168,7 @@ module.exports = function rateLimiter(fn, limit, windowMs) {
     return fn(...args);
   };
 };`,
-  buildHarness: (code, _task, _iteration) => buildRateLimiterHarness(code),
+  buildHarness: (code, _task, _iteration, _params?) => buildRateLimiterHarness(code),
 });
 
 registerPlugin({
@@ -214,7 +216,7 @@ module.exports = class LRUCache {
     this.map.set(key, value);
   }
 };`,
-  buildHarness: (code, _task, _iteration) => buildLRUCacheHarness(code),
+  buildHarness: (code, _task, _iteration, _params?) => buildLRUCacheHarness(code),
 });
 
 registerPlugin({
@@ -267,7 +269,7 @@ module.exports = function circuitBreaker(fn, threshold, resetMs) {
     }
   };
 };`,
-  buildHarness: (code, _task, _iteration) => buildCircuitBreakerHarness(code),
+  buildHarness: (code, _task, _iteration, _params?) => buildCircuitBreakerHarness(code),
 });
 
 registerPlugin({
@@ -317,7 +319,7 @@ module.exports = async function runWithLimit(tasks, concurrency) {
   await Promise.all(Array.from({ length: concurrency }, worker));
   return results;
 };`,
-  buildHarness: (code, _task, iteration) => buildPromisePoolHarness(code, iteration),
+  buildHarness: (code, _task, iteration, _params?) => buildPromisePoolHarness(code, iteration),
 });
 
 registerPlugin({
@@ -377,7 +379,7 @@ module.exports = function getBestMove(board) {
   }
   return bestMove;
 };`,
-  buildHarness: (code, _task, _iteration) => buildTicTacToeHarness(code),
+  buildHarness: (code, _task, _iteration, _params?) => buildTicTacToeHarness(code),
 });
 
 registerPlugin({
@@ -442,7 +444,7 @@ module.exports = function findPath(grid, start, end) {
   }
   return [];
 };`,
-  buildHarness: (code, _task, _iteration) => buildMazeSolverHarness(code),
+  buildHarness: (code, _task, _iteration, _params?) => buildMazeSolverHarness(code),
 });
 
 registerPlugin({
@@ -513,7 +515,7 @@ module.exports = function solveSudoku(grid) {
   solve(grid);
   return grid;
 };`,
-  buildHarness: (code, _task, _iteration) => buildSudokuHarness(code),
+  buildHarness: (code, _task, _iteration, _params?) => buildSudokuHarness(code),
 });
 
 registerPlugin({
@@ -560,7 +562,43 @@ module.exports = function guessWord(feedback) {
   const valid = TARGETS.filter(word => matchesFeedback(word, feedback));
   return valid[0] || 'CRANE';
 };`,
-  buildHarness: (code, _task, _iteration) => buildWordleHarness(code),
+  buildHarness: (code, _task, _iteration, _params?) => buildWordleHarness(code),
+});
+
+// ─── Unit Test plugin ─────────────────────────────────────────────────────────
+
+registerPlugin({
+  id: 'js-unit-test',
+  name: 'JS — Unit Test Runner',
+  description:
+    'Runs a named function against a set of test cases with per-case point weights. ' +
+    'Supports sync and async functions. Bonus +0.5 pts per test passing under 50ms.',
+  exampleTask: 'Write fibonacci(n) that returns the nth Fibonacci number (0-indexed). Export as module.exports.',
+  usesEnvironments: false,
+  isAlgorithmic: true,
+  baselineCode: `
+// STRATEGY: {"name":"baseline","params":{"algorithm":"naive-recursive"}}
+module.exports = function fibonacci(n) {
+  if (n <= 1) return n;
+  return fibonacci(n - 1) + fibonacci(n - 2);
+};`,
+  promptInstructions: `EXPORTED INTERFACE:
+  module.exports = function <functionName>(...args) { ... }
+
+RULES:
+- Export the function directly via module.exports.
+- The harness calls your function with the exact inputs in the test cases.
+- Comparison is deep-equal (JSON.stringify). Return the exact type expected.
+- For numeric results, return integers as integers (not strings).
+- Only Node.js built-ins. No npm packages.
+
+SCORING:
+- Each test case has a point weight (1-10).
+- score = (earned_points / total_points) * 10, rounded to 1 decimal.
+- Bonus: +0.5 pts per test that passes in under 50ms (memoization / DP encouraged).
+- success = score >= 6.`,
+  buildHarness: (code, _task, _iteration, params?) =>
+    buildUnitTestHarness(code, params ?? {}),
 });
 
 // ─── Free Mode plugin ────────────────────────────────────────────────────────
@@ -596,5 +634,5 @@ SCORING (LLM judge, 0-10):
    6 = useful but improvable
    4 = incomplete or too vague
    2 = wrong, off-topic, or excessively long`,
-  buildHarness: (_code: string, _task: string, _iteration: number) => '// free mode — no harness',
+  buildHarness: (_code: string, _task: string, _iteration: number, _params?: Record<string, unknown>) => '// free mode — no harness',
 });

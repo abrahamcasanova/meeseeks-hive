@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { mkdir } from 'fs/promises';
+import { mkdir, mkdirSync } from 'fs';
 import { dirname } from 'path';
 
 export interface StrategyRecord {
@@ -54,14 +54,15 @@ export class StorageService {
   private db: Database.Database;
 
   constructor(dbPath: string) {
+    // Create directory synchronously — better-sqlite3 constructor is sync so we can't await
+    mkdirSync(dirname(dbPath), { recursive: true });
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.exec(CREATE_STRATEGIES + CREATE_LEARNINGS + CREATE_INDEXES);
   }
 
   static async create(dbPath: string): Promise<StorageService> {
-    await mkdir(dirname(dbPath), { recursive: true });
-    return new StorageService(dbPath);
+    return new StorageService(dbPath); // constructor now handles mkdir
   }
 
   save(record: Omit<StrategyRecord, 'created_at' | 'updated_at'>): void {

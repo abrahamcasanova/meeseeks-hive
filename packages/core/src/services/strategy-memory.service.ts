@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { pino } from 'pino';
 import type { EmbeddingAdapter } from '../adapters/embedding.types.js';
 import { StorageService, type StrategyRecord } from './storage.service.js';
+import type { StorageBackend } from './storage.backend.js';
 
 const log = pino({ name: 'strategy-memory' });
 
@@ -16,10 +17,10 @@ export interface SaveStrategyOpts {
 }
 
 export class StrategyMemoryService {
-  private storage: StorageService;
+  private storage: StorageService | StorageBackend;
   private embedding?: EmbeddingAdapter;
 
-  constructor(storage: StorageService, embeddingAdapter?: EmbeddingAdapter) {
+  constructor(storage: StorageService | StorageBackend, embeddingAdapter?: EmbeddingAdapter) {
     this.storage = storage;
     this.embedding = embeddingAdapter;
   }
@@ -44,7 +45,7 @@ export class StrategyMemoryService {
       envScores[opts.env] = { avg: opts.score, count: 1 };
     }
 
-    this.storage.save({
+    await Promise.resolve(this.storage.save({
       id: randomUUID(),
       task_pattern: pattern,
       task_text: opts.task,
@@ -55,7 +56,7 @@ export class StrategyMemoryService {
       avg_score: opts.score,
       success_count: 1,
       env_scores: envScores,
-    });
+    }));
 
     log.info({ pattern, strategy: opts.strategyName, score: opts.score }, 'Strategy saved');
   }
@@ -64,7 +65,7 @@ export class StrategyMemoryService {
     const pattern = extractTaskPattern(task);
 
     if (pattern !== 'generic') {
-      const results = this.storage.findByPattern(pattern, limit);
+      const results = await Promise.resolve(this.storage.findByPattern(pattern, limit));
       if (results.length > 0) return results;
     }
 
@@ -72,14 +73,14 @@ export class StrategyMemoryService {
     if (this.embedding) {
       try {
         const embedding = await this.embedding.embed(task);
-        return this.storage.findBySimilarity(embedding, limit);
+        return await Promise.resolve(this.storage.findBySimilarity(embedding, limit));
       } catch (err) {
         log.warn({ err }, 'Semantic search failed — falling back to generic pattern');
       }
     }
 
     // Last resort: return any generic strategies by score
-    return this.storage.findByPattern('generic', limit);
+    return await Promise.resolve(this.storage.findByPattern('generic', limit));
   }
 
   extractTaskPattern(task: string): string {
@@ -97,6 +98,7 @@ export function extractTaskPattern(task: string): string {
   if (/promise.*pool|runwithlimit|concurrent.*limit|concurrency.*cap/i.test(lower)) return 'promisePool';
   if (/debounce/i.test(lower)) return 'debounce';
   if (/memoize|memoization/i.test(lower)) return 'memoize';
+  if (/fibonacci|palindrome|anagram|prime|factorial|sort|search|graph|tree|dynamic.programming|two.sum|binary.search|linked.list/i.test(lower)) return 'algorithm';
 
   return 'generic';
 }
